@@ -40,6 +40,26 @@ class Bullet(arcade.Sprite):
         self.center_x += self.dx
         self.center_y += self.dy
 
+class EnemyBullet(arcade.Sprite):
+    def __init__(self, position, velocity, damage):
+        ''' 
+        initializes the bullet
+        Parameters: position: (x,y) tuple
+            velocity: (dx, dy) tuple
+            damage: int (or float)
+        '''
+        super().__init__("assets/bullet_enemy.png", 0.5)
+        (self.center_x, self.center_y) = position
+        (self.dx, self.dy) = velocity
+        self.damage = damage
+
+    def update(self):
+        '''
+        Moves the enemy bullet
+        '''
+        self.center_x += self.dx
+        self.center_y += self.dy
+
 
     
 class Player(arcade.Sprite):
@@ -72,8 +92,12 @@ class Window(arcade.Window):
         arcade.set_background_color(open_color.blue_4)
         self.bullet_list = arcade.SpriteList()
         self.enemy_list = arcade.SpriteList()
+        self.enemy_bullet_list = arcade.SpriteList()
         self.player = Player()
         self.score = 0
+        self.timer = 0
+        self.damage_indicator = " "
+        self.damage_timer = 0
 
     def setup(self):
         '''
@@ -87,6 +111,8 @@ class Window(arcade.Window):
 
     def update(self, delta_time):
         self.bullet_list.update()
+        self.enemy_bullet_list.update()
+        self.player.update()
         #Extra credit one:
         if (len(self.enemy_list) == 0):
             exit()
@@ -101,12 +127,40 @@ class Window(arcade.Window):
                         e.kill()
                         self.score += KILL_SCORE
 
+        #Coding enemy bullets. They will not fire if the player is killed.
+        self.timer += 1
+        if(self.timer > 60 and self.score >= 0):
+            for e in self.enemy_list:
+                x = e.center_x
+                y = e.center_y - 15
+                enemyBullet = EnemyBullet((x,y),(0,-10),BULLET_DAMAGE)
+                self.enemy_bullet_list.append(enemyBullet)
+            self.timer = 0
+        #Coding the player damage
+        for b in self.enemy_bullet_list:
+                if (b.center_y == self.player.center_y + 5 and ((b.center_x >= self.player.center_x - 45) and (b.center_x <= self.player.center_x + 45))):
+                    self.score -= HIT_SCORE * 3
+                    self.damage_indicator = str(HIT_SCORE * -3)
+                    self.damage_timer = 0
+        self.damage_timer += 1
+        if(self.damage_timer > 70):
+            self.damage_indicator = " "
+        #self.player.kill doesnt seem to work, so I kind of simulated it everywhere else
+        if (self.score < 0):
+            self.player.kill()
+                
+
+
     def on_draw(self):
         arcade.start_render()
         arcade.draw_text(str(self.score), 20, SCREEN_HEIGHT - 40, open_color.white, 16)
-        self.player.draw()
+        #Added to simulate the kill() that won't work
+        if(self.score >= 0):
+            self.player.draw()
         self.bullet_list.draw()
         self.enemy_list.draw()
+        self.enemy_bullet_list.draw()
+        arcade.draw_text(self.damage_indicator, self.player.center_x, 150, (255, 0, 0), 16)
 
     def on_mouse_motion(self, x, y, dx, dy):
         '''
@@ -115,7 +169,7 @@ class Window(arcade.Window):
         self.player.center_x = x
 
     def on_mouse_press(self, x, y, button, modifiers):
-        if button == arcade.MOUSE_BUTTON_LEFT:
+        if button == arcade.MOUSE_BUTTON_LEFT and self.score >= 0:
             #fire a bullet
             x = self.player.center_x
             y = self.player.center_y + 15
